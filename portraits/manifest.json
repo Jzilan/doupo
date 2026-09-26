@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "aliases": {
+    "彩鳞（美杜莎）": "美杜莎",
+    "美杜莎女王": "美杜莎",
+    "彩鳞": "美杜莎",
+    "萧薰儿（熏儿）": "萧薰儿",
+    "萧熏儿": "萧薰儿",
+    "薰儿": "萧薰儿",
+    "熏儿": "萧薰儿",
+    "古薰儿": "萧薰儿",
+    "紫研": "紫妍",
+    "药尘": "药老",
+    "药尊者": "药老",
+    "冰皇": "海波东",
+    "天火尊者": "天火尊者",
+    "曜天火": "天火尊者",
+    "曜老先生": "天火尊者",
+    "腾山": "米特尔·腾山"
+  },
+  "characters": {
+    "云韵": [
+      "portraits/21dc94fff23246ef.jpg",
+      "portraits/abe3c57fbcf247ce.jpg",
+      "portraits/1d0963b8adfde2a6.jpg"
+    ],
+    "小医仙": [
+      "portraits/62127ae40916d2d8.jpg",
+      "portraits/3be0ace35de517f5.jpg",
+      "portraits/aa7dab3140442f45.jpg"
+    ],
+    "美杜莎": [
+      "portraits/fdef21d34a44f1c2.jpg",
+      "portraits/6cb3a24f1a96a8ea.jpg",
+      "portraits/693b6ce419df9d27.jpg"
+    ],
+    "慕青鸾": [
+      "portraits/e8e417c984c43bcc.jpg",
+      "portraits/ee828df695a35579.jpg"
+    ],
+    "曹颖": [
+      "portraits/7eaca250eadf03bc.jpg",
+      "portraits/14cda01eb6fabc13.jpg",
+      "portraits/a3912570da509225.jpg"
+    ],
+    "月儿": [
+      "portraits/c45769c753e0301d.jpg"
+    ],
+    "月媚": [
+      "portraits/93f76a4de6e14352.jpg",
+      "portraits/f27e29500ead7b2a.jpg",
+      "portraits/5671224a9816de71.jpg"
+    ],
+    "柳菲儿": [
+      "portraits/bce5fdf7f8d65c5d.jpg"
+    ],
+    "琥嘉": [
+      "portraits/dae53cd57f11310f.jpg"
+    ],
+    "紫妍": [
+      "portraits/61d8006d9196a718.jpg",
+      "portraits/2a868c5edd8f4ab5.jpg",
+      "portraits/a7912f8712809296.jpg"
+    ],
+    "纳兰嫣然": [
+      "portraits/8e6091dcc7ef1fb2.jpg",
+      "portraits/6766ff22aee05d19.jpg",
+      "portraits/d9f694f33e078c8e.jpg"
+    ],
+    "若琳": [
+      "portraits/31f4c8a6ebcee7f1.jpg"
+    ],
+    "萧玉": [
+      "portraits/223007b1b8c2ea37.jpg",
+      "portraits/8b8729f51d59377c.jpg",
+      "portraits/5b5b74e569e5176f.jpg"
+    ],
+    "萧薰儿": [
+      "portraits/386172e2a777aaa1.jpg",
+      "portraits/fdd5f40d7c8b5ab3.jpg",
+      "portraits/a6f8abb8fcbc7015.jpg"
+    ],
+    "雅妃": [
+      "portraits/926cabb5b9cbf929.jpg",
+      "portraits/3951c2ed8b1178c9.jpg",
+      "portraits/de74c1225d25c5ec.jpg"
+    ],
+    "青鳞": [
+      "portraits/4185805d4f807d41.jpg"
+    ],
+    "丹晨": [
+      "portraits/a24467a95f6846c6.png"
+    ],
+    "凌导师": [
+      "portraits/5d390d605c2184bb.png"
+    ],
+    "凤清儿": [
+      "portraits/bc035e6961a01f42.png"
+    ],
+    "凰轩": [
+      "portraits/6c5a78c3ce39433b.png"
+    ],
+    "唐火儿": [
+      "portraits/ae762776b856c1cd.png"
+    ],
+    "柳菲": [
+      "portraits/1c39728cfed32116.png"
+    ],
+    "欣蓝": [
+      "portraits/f74f32b04684195e.png"
+    ],
+    "罗小夭": [
+      "portraits/b10e2367f7048ee0.png"
+    ],
+    "菲儿": [
+      "portraits/feb0c21b5f5a66d6.png"
+    ],
+    "萧潇": [
+      "portraits/65c6b2fd4be78483.png"
+    ],
+    "云山": [
+      "portraits/300e9210f61abf0d.jpg"
+    ],
+    "修罗": [
+      "portraits/cdc90b399439e396.jpg"
+    ],
+    "古河": [
+      "portraits/d345279bba0f49bf.jpg"
+    ],
+    "地魔老祖": [
+      "portraits/b081b8171d7843be.jpg"
+    ],
+    "天火尊者": [
+      "portraits/74adb047062a7fbb.jpg"
+    ],
+    "慕骨老人": [
+      "portraits/ddd04fb00e37fca6.jpg"
+    ],
+    "摘星尊者": [
+      "portraits/949fd7f031c00adb.jpg"
+    ],
+    "海波东": [
+      "portraits/d8ac528ed5492951.jpg",
+      "portraits/b3da119299d741fe.jpg"
+    ],
+    "药老": [
+      "portraits/909419cd404c2b04.jpg",
+      "portraits/0585b6a82a417365.jpg"
+    ],
+    "萧炎": [
+      "portraits/c26f864e447459a8.jpg",
+      "portraits/08de21389679ce75.jpg"
+    ],
+    "萧玄": [
+      "portraits/71e21c6eaed44409.jpg"
+    ],
+    "血刀圣者": [
+      "portraits/ab26006985f50ede.jpg"
+    ],
+    "魂天帝": [
+      "portraits/d91b2ce602a3b43d.jpg"
+    ],
+    "花玉": [
+      "portraits/4836bc4f9bd4aab5.jpg"
+    ],
+    "米特尔·腾山": [
+      "portraits/8d2eae8e9359dd64.jpg"
+    ],
+    "黑湮军统领": [
+      "portraits/51756d9cd1ac5c66.jpg"
+    ]
+  }
+}
