@@ -176,6 +176,7 @@
       var other = extraCards(state, ['主角','装备','储物空间','人物','伴侣','兽宠','炼丹']);
       root.querySelector('[data-panel="其他"]').innerHTML = '<div class="dpst-grid">' + other + '</div>';
       root.querySelector('[data-tab="其他"]').hidden = !other;
+      if (!other && root.querySelector('[data-tab="其他"]').classList.contains('is-active')) { activate('主角'); save('doupo-status-tab-v4', '主角'); }
       if (storage('doupo-status-avatar-mode-v1', 'none') === 'none' && !DoupoPortraits.url(hero.姓名)) clearAvatarView();
       restoreOpenRecords();
       root.querySelectorAll('[data-person-portrait]').forEach(function (node) { DoupoPortraits.mount(node, node.dataset.personPortrait); });
