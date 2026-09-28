@@ -1,4 +1,4 @@
-// Installed inside the existing status-bar runtime so it uses the same render function.
+// Runs inside the status runtime; edits stay in a draft until the footer Save is pressed.
     var editor = null;
     function messageBinding() {
       if (typeof window.getCurrentMessageId !== 'function') throw new Error('请在聊天消息中的状态栏打开编辑。');
@@ -18,94 +18,172 @@
     function editGet(value, path) { for (var part of path) { if (!value || typeof value !== 'object' || !Object.hasOwn(value, part)) return undefined; value = value[part]; } return value; }
     function editType(value) { return value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value; }
     function editorStatus(message) { root.querySelector('[data-edit-status]').textContent = message || ''; }
-    function editorTree() {
-      var tree = root.querySelector('[data-edit-tree]');
-      tree.replaceChildren();
-      function button(label, action) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', action); return b; }
-      function visit(value, path, parent) {
-        var group = value !== null && typeof value === 'object';
-        var node = document.createElement(group ? 'details' : 'div'); node.className = 'dp-edit-node';
-        var row = document.createElement(group ? 'summary' : 'div'); row.className = 'dp-edit-row';
-        var label = document.createElement('span'); label.textContent = path.length ? String(path.at(-1)) : '全部变量'; row.append(label);
-        if (!group) { var preview = document.createElement('code'); preview.textContent = String(value); row.append(preview); }
-        if (path.length) row.append(button('修改', function (e) { e.stopPropagation(); e.preventDefault(); chooseEdit(path, false); }));
-        if (group) row.append(button('新增', function (e) { e.stopPropagation(); e.preventDefault(); chooseEdit(path, true); }));
-        node.append(row); parent.append(node);
-        if (group) { node.open = path.length < 1; for (var pair of Object.entries(value)) visit(pair[1], path.concat(pair[0]), node); }
-      }
-      visit(editor.base, [], tree);
+    function editButton(text, action, attribute) {
+      var button = document.createElement('button'); button.type = 'button'; button.textContent = text;
+      if (attribute) button.setAttribute(attribute, '');
+      button.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); action(); });
+      return button;
     }
-    function chooseEdit(path, adding) {
-      editor.path = path.slice(); editor.adding = adding;
-      var value = editGet(editor.base, path);
-      editor.expected = JSON.stringify(value);
-      var form = root.querySelector('[data-edit-form]'); form.hidden = false;
-      root.querySelector('[data-edit-path]').textContent = path.length ? path.join(' › ') : '全部变量';
-      var name = root.querySelector('[data-edit-key]');
-      var isArray = Array.isArray(adding ? value : editGet(editor.base, path.slice(0, -1)));
-      editor.arrayParent = isArray && !adding ? JSON.stringify(editGet(editor.base, path.slice(0, -1))) : null;
-      name.value = adding ? (isArray ? String(value.length) : '') : String(path.at(-1));
-      name.readOnly = isArray;
-      root.querySelector('[data-edit-type]').value = adding ? 'string' : editType(value);
-      root.querySelector('[data-edit-value]').value = adding ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-      root.querySelector('[data-edit-delete]').hidden = adding;
-      editorStatus(''); form.scrollIntoView({ block: 'nearest' }); name.focus();
+    function validEditName(name) {
+      if (!name.trim() || ['__proto__','prototype','constructor'].includes(name)) throw new Error('请输入有效的名称。');
+      if (hiddenStatusKey(name)) throw new Error('此项不在状态栏中显示。');
+      return name;
     }
-    async function openVariableEditor() {
-      root.querySelector('[data-settings-panel]').hidden = true;
-      applyCollapsed('off');
-      var panel = root.querySelector('[data-variable-editor]'); panel.hidden = false;
-      root.querySelector('[data-edit-form]').hidden = true;
-      try {
-        var binding = messageBinding();
-        editor = { binding: binding, base: envelope(binding).stat_data };
-        editorTree(); editorStatus('修改保存后立即同步本条消息的变量。');
-      } catch (error) { editor = null; root.querySelector('[data-edit-tree]').replaceChildren(); editorStatus(error.message); }
-    }
-    async function saveVariable(remove) {
-      if (!editor || !editor.path) return;
-      var savingEditor = editor;
-      var saveButton = root.querySelector('[data-edit-save]'); var deleteButton = root.querySelector('[data-edit-delete]');
-      saveButton.disabled = deleteButton.disabled = true;
-      try {
-        var binding = messageBinding();
-        if (binding.option.message_id !== editor.binding.option.message_id || binding.chat !== editor.binding.chat || binding.swipe !== editor.binding.swipe) throw new Error('当前消息已改变，请重新打开编辑。');
-        var data = envelope(binding);
-        if (JSON.stringify(editGet(data.stat_data, editor.path)) !== editor.expected) throw new Error('这个变量已被其他操作修改，请点击“重新读取”后再编辑。');
-        var path = editor.path, parentPath = editor.adding ? path : path.slice(0, -1);
-        var parent = editGet(data.stat_data, parentPath);
-        if (!parent || typeof parent !== 'object') throw new Error('所属变量已删除，请重新读取。');
-        if (editor.arrayParent !== null && JSON.stringify(parent) !== editor.arrayParent) throw new Error('列表已变化，请重新读取后再编辑。');
-        var name = root.querySelector('[data-edit-key]').value;
-        if (!name.trim() || ['__proto__','prototype','constructor'].includes(name)) throw new Error('请输入有效的变量名称。');
-        var oldKey = path.at(-1);
-        if (!remove && (editor.adding || name !== oldKey) && Object.hasOwn(parent, name)) throw new Error('同名变量已经存在。');
-        if (remove) {
-          if (Array.isArray(parent)) parent.splice(Number(oldKey), 1); else delete parent[oldKey];
-        } else {
-          var raw = root.querySelector('[data-edit-value]').value, type = root.querySelector('[data-edit-type]').value;
-          var value;
-          if (type === 'string') value = raw;
-          else {
-            try { value = JSON.parse(raw); } catch (_) { throw new Error('值的格式不正确：数字、布尔值、数组和对象请使用合法 JSON。'); }
-            if (editType(value) !== type || type === 'number' && !Number.isFinite(value)) throw new Error('值与选择的类型不一致。');
+    // Objects and lists use ordinary labelled inputs, never a JSON text area.
+    function editField(name, value, fixedName) {
+      var row = document.createElement('div'); row.className = 'dp-inline-field';
+      var nameLabel = document.createElement('label'); nameLabel.textContent = '名称';
+      var key = document.createElement('input'); key.value = name; key.readOnly = fixedName; key.dataset.editKey = ''; nameLabel.append(key);
+      var typeLabel = document.createElement('label'); typeLabel.textContent = '类型';
+      var type = document.createElement('select'); type.dataset.editType = '';
+      [['string','文字'],['number','数字'],['boolean','是 / 否'],['object','分组'],['array','列表'],['null','空值']].forEach(function (pair) { type.add(new Option(pair[1], pair[0])); });
+      type.value = value === undefined ? 'string' : editType(value); typeLabel.append(type);
+      var body = document.createElement('div'); body.className = 'dp-inline-value';
+      row.append(nameLabel, typeLabel, body);
+      var collect;
+      function draw(current) {
+        body.replaceChildren();
+        var selected = type.value;
+        if (selected === 'object' || selected === 'array') {
+          var list = selected === 'array', children = [];
+          var group = document.createElement('div'); group.className = 'dp-inline-children'; body.append(group);
+          function add(childName, childValue) {
+            var child = editField(childName, childValue, list); children.push(child); group.append(child.row);
+            child.row.append(editButton('删除此项', function () { child.row.remove(); }, 'data-edit-child-delete'));
           }
-          if (Array.isArray(parent) && editor.adding) parent.push(value);
-          else { if (!editor.adding && name !== oldKey) delete parent[oldKey]; parent[name] = value; }
+          Object.entries(current || {}).filter(function (pair) { return !hiddenStatusKey(pair[0]); }).forEach(function (pair) { add(pair[0], pair[1]); });
+          body.append(editButton(list ? '新增一项' : '新增字段', function () { add(list ? String(children.length) : '', ''); }, 'data-edit-child-add'));
+          collect = function () {
+            var result = list ? [] : {};
+            if (!list) Object.entries(current || {}).filter(function (pair) { return hiddenStatusKey(pair[0]); }).forEach(function (pair) { result[pair[0]] = pair[1]; });
+            children.filter(function (child) { return group.contains(child.row); }).forEach(function (child) {
+              var pair = child.read();
+              if (list) result.push(pair.value);
+              else { if (Object.hasOwn(result, pair.name)) throw new Error('同名字段已经存在：' + pair.name); result[pair.name] = pair.value; }
+            });
+            return result;
+          };
+        } else if (selected === 'null') {
+          body.textContent = '未设置'; collect = function () { return null; };
+        } else {
+          var label = document.createElement('label'); label.textContent = '值';
+          var input = document.createElement(selected === 'boolean' ? 'select' : selected === 'number' ? 'input' : 'textarea'); input.dataset.editValue = '';
+          if (selected === 'boolean') { input.add(new Option('是', 'true')); input.add(new Option('否', 'false')); input.value = String(Boolean(current)); }
+          else if (selected === 'number') { input.type = 'number'; input.step = 'any'; input.value = current === undefined ? '' : String(current); }
+          else { input.rows = 3; input.value = current === undefined ? '' : String(current); }
+          label.append(input); body.append(label);
+          collect = function () {
+            if (selected === 'boolean') return input.value === 'true';
+            if (selected === 'number') { if (!input.value.trim() || !Number.isFinite(Number(input.value))) throw new Error('请输入有效数字。'); return Number(input.value); }
+            return input.value;
+          };
         }
-        await binding.target.Mvu.replaceMvuData(data, binding.option);
-        if (editor === savingEditor && editor.path === path) {
-          editor.base = envelope(binding).stat_data;
-          editor.path = null; editorTree(); root.querySelector('[data-edit-form]').hidden = true;
-          editorStatus(remove ? '已删除，变量管理器会同步更新。' : '已保存，变量管理器会同步更新。');
-        }
-        lastState = ''; render();
-      } catch (error) { editorStatus(error.message || '保存失败，请重试。'); }
-      finally { saveButton.disabled = deleteButton.disabled = false; }
+      }
+      type.addEventListener('change', function () { draw({string:'',number:0,boolean:false,object:{},array:[],null:null}[type.value]); });
+      draw(value);
+      return { row: row, read: function () { return { name: fixedName ? name : validEditName(key.value), value: collect() }; } };
     }
+    function refreshDraft() { lastState = ''; render(); }
+    function finishInline(remove) {
+      if (!editor || !editor.active) return;
+      var active = editor.active, path = active.path;
+      var parent = editGet(editor.draft, active.adding ? path : path.slice(0, -1));
+      if (!parent || typeof parent !== 'object') throw new Error('所属项目不存在，请退出后重新编辑。');
+      var oldKey = path.at(-1);
+      if (remove) { if (Array.isArray(parent)) parent.splice(Number(oldKey), 1); else delete parent[oldKey]; }
+      else {
+        var pair = active.field.read();
+        if (!Array.isArray(parent) && (active.adding || pair.name !== oldKey) && Object.hasOwn(parent, pair.name)) throw new Error('同名字段已经存在。');
+        if (active.adding && Array.isArray(parent)) parent.push(pair.value);
+        else { if (!active.adding && pair.name !== oldKey) delete parent[oldKey]; parent[pair.name] = pair.value; }
+      }
+      editor.active = null; refreshDraft(); editorStatus('修改尚未保存，请点击左下角“保存”。');
+    }
+    function beginInline(path, adding) {
+      if (!editor || editor.saving) return;
+      try {
+        finishInline(false);
+        var value = editGet(editor.draft, path);
+        var parent = adding ? value : editGet(editor.draft, path.slice(0, -1));
+        var list = Array.isArray(parent);
+        var name = adding ? (list ? String(parent.length) : '') : String(path.at(-1));
+        var recordGroup = ['人物','伴侣','兽宠','装备','储物空间','功法','斗技'].includes(path.at(-1));
+        var field = editField(name, adding ? (recordGroup ? {} : '') : value, list);
+        var form = document.createElement('div'); form.className = 'dp-inline-form'; form.dataset.inlineForm = '';
+        var heading = document.createElement('strong'); heading.textContent = adding ? '新增项目' : path.join(' · '); form.append(heading, field.row);
+        function attempt(action) { try { action(); } catch (error) { editorStatus(error.message); } }
+        var actions = document.createElement('div'); actions.className = 'dp-edit-actions';
+        actions.append(editButton('收起编辑', function () { attempt(function () { finishInline(false); }); }, 'data-edit-apply'));
+        if (!adding) actions.append(editButton('删除此项', function () { attempt(function () { finishInline(true); }); }, 'data-edit-delete'));
+        actions.append(editButton('取消本项', function () { editor.active = null; refreshDraft(); }, 'data-edit-cancel')); form.append(actions);
+        var attribute = adding ? 'data-edit-add' : 'data-value-path';
+        var node = Array.from(root.querySelectorAll('[' + attribute + ']')).find(function (item) { return item.getAttribute(attribute) === JSON.stringify(path); });
+        if (!node) throw new Error('该项暂未显示，请切换到对应标签。');
+        if (adding) node.after(form);
+        else if (node.tagName === 'SUMMARY') { node.parentElement.open = true; node.parentElement.querySelector('.dpst-record-body').replaceChildren(form); }
+        else if (node.closest('.dpst-head')) node.after(form);
+        else { node.classList.add('dp-inline-host'); node.replaceChildren(form); }
+        editor.active = {path:path.slice(),adding:adding,field:field};
+        editorStatus('双击其他方框可继续修改，最后点击左下角“保存”。');
+        (form.querySelector('[data-edit-value]') || form.querySelector('input')).focus();
+      } catch (error) { editorStatus(error.message); }
+    }
+    function openVariableEditor() {
+      root.querySelector('[data-settings-panel]').hidden = true; applyCollapsed('off');
+      root.querySelector('[data-edit-toolbar]').hidden = false;
+      if (editor) return;
+      try {
+        var binding = messageBinding(), data = envelope(binding).stat_data;
+        editor = {binding:binding,base:data,draft:JSON.parse(JSON.stringify(data)),active:null,saving:false};
+        root.dataset.editing = 'on'; refreshDraft(); editorStatus('双击方框修改；完成后点击左下角“保存”。');
+      } catch (error) { editorStatus(error.message); }
+    }
+    function editChanges(before, after, path, result) {
+      if (JSON.stringify(before) === JSON.stringify(after)) return;
+      if (editType(before) === 'object' && editType(after) === 'object') {
+        Array.from(new Set(Object.keys(before).concat(Object.keys(after)))).forEach(function (key) { editChanges(before[key], after[key], path.concat(key), result); });
+      } else result.push({path:path,before:before,after:after});
+    }
+    async function saveVariable() {
+      if (!editor || editor.saving) return;
+      var current = editor;
+      try {
+        finishInline(false);
+        var binding = messageBinding();
+        if (binding.option.message_id !== editor.binding.option.message_id || binding.chat !== editor.binding.chat || binding.swipe !== editor.binding.swipe) throw new Error('当前消息已改变，请退出后重新编辑。');
+        var data = envelope(binding), changes = []; editChanges(editor.base, editor.draft, [], changes);
+        changes.forEach(function (change) {
+          if (JSON.stringify(editGet(data.stat_data, change.path)) !== JSON.stringify(change.before)) throw new Error('“' + change.path.join(' · ') + '”已被其他操作修改。草稿已保留，请放弃修改后重新读取。');
+          var parent = editGet(data.stat_data, change.path.slice(0, -1));
+          if (!parent || typeof parent !== 'object') throw new Error('所属项目已变化，请放弃修改后重新读取。');
+        });
+        changes.forEach(function (change) { var parent = editGet(data.stat_data, change.path.slice(0, -1)), key = change.path.at(-1); if (change.after === undefined) delete parent[key]; else parent[key] = change.after; });
+        editor.saving = true; root.querySelector('[data-edit-save]').disabled = true;
+        if (changes.length) await binding.target.Mvu.replaceMvuData(data, binding.option);
+        editor.base = envelope(binding).stat_data; editor.draft = JSON.parse(JSON.stringify(editor.base));
+        refreshDraft(); editorStatus('已保存，变量管理器已同步。');
+      } catch (error) { editorStatus(error.message || '保存失败，草稿已保留。'); }
+      finally { current.saving = false; root.querySelector('[data-edit-save]').disabled = false; }
+    }
+    function closeVariableEditor(discard) {
+      if (editor && editor.saving) return;
+      if (!discard && editor && (editor.active || JSON.stringify(editor.base) !== JSON.stringify(editor.draft))) { editorStatus('还有未保存的修改，请先保存，或点击“放弃修改”。'); return; }
+      editor = null; delete root.dataset.editing; root.querySelector('[data-edit-toolbar]').hidden = true; refreshDraft();
+    }
+    root.addEventListener('dblclick', function (event) {
+      if (!editor || event.target.closest('.dp-inline-form')) return;
+      var node = event.target.closest('[data-value-path]');
+      if (node) { event.preventDefault(); event.stopPropagation(); beginInline(JSON.parse(node.dataset.valuePath), false); }
+    });
+    root.addEventListener('keydown', function (event) {
+      if (editor && event.key === 'Enter' && event.target.hasAttribute('data-value-path')) { event.preventDefault(); beginInline(JSON.parse(event.target.dataset.valuePath), false); }
+    });
+    root.addEventListener('click', function (event) {
+      var add = event.target.closest('[data-edit-add]');
+      if (add && editor) { event.preventDefault(); beginInline(JSON.parse(add.dataset.editAdd), true); }
+    });
+    ['click','dblclick','keydown','input'].forEach(function (type) { root.addEventListener(type, function (event) { if (editor && editor.saving) { event.preventDefault(); event.stopImmediatePropagation(); } }, true); });
     root.querySelector('[data-edit-open]').addEventListener('click', openVariableEditor);
-    root.querySelector('[data-edit-reload]').addEventListener('click', openVariableEditor);
-    root.querySelector('[data-edit-close]').addEventListener('click', function () { root.querySelector('[data-variable-editor]').hidden = true; editor = null; });
-    root.querySelector('[data-edit-cancel]').addEventListener('click', function () { root.querySelector('[data-edit-form]').hidden = true; editor.path = null; });
-    root.querySelector('[data-edit-save]').addEventListener('click', function () { saveVariable(false); });
-    root.querySelector('[data-edit-delete]').addEventListener('click', function () { saveVariable(true); });
+    root.querySelector('[data-edit-save]').addEventListener('click', saveVariable);
+    root.querySelector('[data-edit-close]').addEventListener('click', function () { closeVariableEditor(false); });
+    root.querySelector('[data-edit-discard]').addEventListener('click', function () { closeVariableEditor(true); });

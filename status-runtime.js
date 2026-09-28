@@ -64,94 +64,100 @@
       var match = source.match(/^(斗之气|斗者|斗师|大斗师|斗灵|斗王|斗皇|斗宗|斗尊|斗圣|斗帝)(.*)$/u);
       return match ? { major:match[1], minor:match[2] || '' } : { major:source, minor:'' };
     }
-    function card(label, value, wide) {
-      if (value === undefined) return ''; 
-      return '<div class="dpst-card' + (wide ? ' wide' : '') + '"><div class="dpst-label">' + esc(label) + '</div><div class="dpst-value">' + esc(string(value)) + '</div></div>';
+    function hiddenStatusKey(key) { return key === '炼药师品级' || key === '灵魂境界'; }
+    function valuePath(path) { return path ? ' data-value-path="' + esc(JSON.stringify(path)) + '"' + (editor ? ' tabindex="0" title="双击编辑"' : '') : ''; }
+    function addControl(path, label) { return editor ? '<button type="button" class="dp-edit-add" data-edit-add="' + esc(JSON.stringify(path)) + '">' + esc(label || '新增字段') + '</button>' : ''; }
+    function card(label, value, wide, path) {
+      if (hiddenStatusKey(label) || value === undefined && !editor) return '';
+      return '<div class="dpst-card' + (wide ? ' wide' : '') + '"' + valuePath(path) + '><div class="dpst-label">' + esc(label) + '</div><div class="dpst-value">' + (value && typeof value === 'object' ? Object.entries(value).filter(function (pair) { return !hiddenStatusKey(pair[0]); }).map(function (pair) { return card(pair[0], pair[1], true, path && path.concat(pair[0])); }).join('') : esc(string(value))) + '</div></div>';
     }
-    function progressCard(label, value) {
-      if (value === undefined) return ''; 
+    function progressCard(label, value, path) {
+      if (value === undefined && !editor) return '';
       var safe = clamp(value);
-      return '<div class="dpst-card"><div class="dpst-label">' + esc(label) + '</div><div class="dpst-value">' + safe + ' / 100</div><div class="dpst-progress"><i style="width:' + safe + '%"></i></div></div>';
+      return '<div class="dpst-card"' + valuePath(path) + '><div class="dpst-label">' + esc(label) + '</div><div class="dpst-value">' + safe + ' / 100</div><div class="dpst-progress"><i style="width:' + safe + '%"></i></div></div>';
     }
-    function extraCards(value, known) { return entries(value).filter(function (pair) { return !known.includes(pair[0]); }).map(function (pair) { return card(pair[0], typeof pair[1] === 'object' ? JSON.stringify(pair[1], null, 2) : pair[1], true); }).join(''); }
+    function extraCards(value, known, path) { return entries(value).filter(function (pair) { return !known.includes(pair[0]) && !hiddenStatusKey(pair[0]); }).map(function (pair) { return card(pair[0], pair[1], true, path.concat(pair[0])); }).join(''); }
     function sectionTitle(title) { return '<h2 class="dpst-section-title">' + esc(title) + '</h2>'; }
     function empty(label) { return '<div class="dpst-empty">暂无' + esc(label) + '</div>'; }
     function realmText(value) {
       var realm = object(value);
       return string(realm.境界) + ' · 进度 ' + clamp(realm.境界进度) + '/100 · ' + string(realm.斗气属性);
     }
-    function realmGauge(value) {
+    function realmGauge(value, path) {
       var realm = object(value);
       var progress = clamp(realm.境界进度);
       var split = splitRealm(realm.境界);
       var flame = 'https://cdn.myfollo.xyz/2026/08/24/6a8bf306b0bdc.png';
-      return '<div class="dpst-realm-gauge" data-realm-gauge style="--realm-progress:' + (progress * 3.6) + 'deg">' +
+      return '<div class="dpst-realm-gauge" data-realm-gauge' + valuePath(path) + ' style="--realm-progress:' + (progress * 3.6) + 'deg">' +
         '<span class="dpst-gauge-axis ns"></span><span class="dpst-gauge-axis ew"></span>' +
         '<span class="dpst-gauge-star ne"></span><span class="dpst-gauge-star se"></span><span class="dpst-gauge-star sw"></span><span class="dpst-gauge-star nw"></span>' +
         '<img class="dpst-gauge-node n" src="' + flame + '" alt=""><img class="dpst-gauge-node e" src="' + flame + '" alt=""><img class="dpst-gauge-node s" src="' + flame + '" alt=""><img class="dpst-gauge-node w" src="' + flame + '" alt="">' +
         '<div class="dpst-realm-inner"><span class="dpst-realm-major">' + esc(split.major) + '</span><strong class="dpst-realm-minor">' + esc(split.minor) + '</strong><span class="dpst-realm-rule"></span><span class="dpst-realm-progress-label">境界进度</span><b class="dpst-realm-progress-value">' + progress + '%</b></div></div>';
     }
     function recordKey(scope, name) { return String(scope || '记录') + '::' + String(name || '未命名'); }
-    function techniqueRecord(name, value, kind, scope) {
-      var info = object(value);
+    function techniqueRecord(name, value, kind, scope, ownerPath) {
+      var info = object(value), path = ownerPath.concat(kind, name);
       var progressKey = kind === '功法' ? '进度' : '熟练度';
-      return '<details class="dpst-record" data-record-key="' + esc(recordKey(scope + ':' + kind, name)) + '"><summary>' + esc(name) + '<span class="dpst-summary-meta">' + esc(string(info.等阶, '未定')) + ' · ' + esc(string(info.境界, '未定')) + '</span></summary><div class="dpst-record-body"><div class="dpst-grid">' + card('等阶', info.等阶) + card('境界', info.境界) + card('属性', info.属性) + progressCard(progressKey, info[progressKey]) + card('效果', info.效果, true) + '</div></div></details>';
+      return '<details class="dpst-record" data-record-key="' + esc(recordKey(scope + ':' + kind, name)) + '"><summary' + valuePath(path) + '>' + esc(name) + '<span class="dpst-summary-meta">' + esc(string(info.等阶, '未定')) + ' · ' + esc(string(info.境界, '未定')) + '</span></summary><div class="dpst-record-body"><div class="dpst-grid">' + card('等阶', info.等阶, false, path.concat('等阶')) + card('境界', info.境界, false, path.concat('境界')) + card('属性', info.属性, false, path.concat('属性')) + progressCard(progressKey, info[progressKey], path.concat(progressKey)) + card('效果', info.效果, true, path.concat('效果')) + extraCards(info, ['等阶','境界','属性',progressKey,'效果'], path) + '</div>' + addControl(path) + '</div></details>';
     }
-    function techniques(owner, kind, scope) {
+    function techniques(owner, kind, scope, path) {
+      path = path || ['主角'];
       var list = entries(object(owner)[kind]);
-      return list.length ? '<div class="dpst-list">' + list.map(function (pair) { return techniqueRecord(pair[0], pair[1], kind, scope || '主角'); }).join('') + '</div>' : empty(kind);
+      return addControl(path.concat(kind), '新增' + kind) + (list.length ? '<div class="dpst-list">' + list.map(function (pair) { return techniqueRecord(pair[0], pair[1], kind, scope || '主角', path); }).join('') + '</div>' : empty(kind));
     }
     function simpleRecordList(source, emptyLabel, fields, scope) {
       var list = entries(source);
-      if (!list.length) return empty(emptyLabel);
-      return '<div class="dpst-list">' + list.map(function (pair) {
-        var info = object(pair[1]);
-        return '<details class="dpst-record" data-record-key="' + esc(recordKey(scope || emptyLabel, pair[0])) + '"><summary>' + esc(pair[0]) + '<span class="dpst-summary-meta">' + esc(string(info[fields[0][0]])) + '</span></summary><div class="dpst-record-body"><div class="dpst-grid">' + fields.map(function (field) { return card(field[1], info[field[0]], field[2] === true); }).join('') + '</div></div></details>';
+      if (!list.length) return empty(emptyLabel) + addControl([scope], '新增' + emptyLabel);
+      return addControl([scope], '新增' + emptyLabel) + '<div class="dpst-list">' + list.map(function (pair) {
+        var info = object(pair[1]), path = [scope, pair[0]];
+        return '<details class="dpst-record" data-record-key="' + esc(recordKey(scope || emptyLabel, pair[0])) + '"><summary' + valuePath(path) + '>' + esc(pair[0]) + '<span class="dpst-summary-meta">' + esc(string(info[fields[0][0]])) + '</span></summary><div class="dpst-record-body"><div class="dpst-grid">' + fields.map(function (field) { return card(field[1], info[field[0]], field[2] === true, path.concat(field[0])); }).join('') + extraCards(info, fields.map(function (field) { return field[0]; }), path) + '</div>' + addControl(path) + '</div></details>';
       }).join('') + '</div>';
     }
-    function favorBar(value) {
+    function favorBar(value, path) {
       var safe = clamp(value);
-      return '<div class="dpst-favor"><span>好感度</span><span class="dpst-favor-track"><i style="width:' + safe + '%"></i></span><b>' + safe + ' / 100</b></div>';
+      return '<div class="dpst-favor"' + valuePath(path) + '><span>好感度</span><span class="dpst-favor-track"><i style="width:' + safe + '%"></i></span><b>' + safe + ' / 100</b></div>';
     }
     function personRecord(name, value, kind) {
-      var info = object(value);
+      var info = object(value), path = [kind, name];
       var fields = [['性别','性别'],['年龄','年龄'],['所在地','所在地'],['在场状态','在场状态'],['关系','关系'],['所属组织','所属组织'],['当前状态','当前状态',true],['外貌','外貌',true],['穿着','穿着',true]];
-      var summary = '<div class="dpst-summary-row"><span class="dpst-summary-name">' + esc(name) + '<i class="dpst-summary-gender">' + esc(sexSymbol(info.性别)) + '</i></span><span class="dpst-summary-relation">' + esc(string(info.关系, '关系未定')) + '</span></div><span class="dpst-summary-meta">' + esc(string(info.在场状态, '不在场')) + ' · ' + esc(string(getPath(info, '境界.境界', '境界未定'))) + '</span>' + favorBar(info.好感度);
-      var body = '<div data-person-portrait="' + esc(name) + '"></div><div class="dpst-grid">' + fields.map(function (field) { return card(field[1], info[field[0]], field[2] === true); }).join('') + card('境界', realmText(info.境界), true) + '</div>';
-      body += '<div class="dpst-grid">' + extraCards(info, fields.map(function (f) { return f[0]; }).concat(['境界','功法','斗技','好感度','内心话','NSFW数据'])) + '</div>';
+      var summary = '<div class="dpst-summary-row"><span class="dpst-summary-name">' + esc(name) + '<i class="dpst-summary-gender">' + esc(sexSymbol(info.性别)) + '</i></span><span class="dpst-summary-relation">' + esc(string(info.关系, '关系未定')) + '</span></div><span class="dpst-summary-meta">' + esc(string(info.在场状态, '不在场')) + ' · ' + esc(string(getPath(info, '境界.境界', '境界未定'))) + '</span>' + favorBar(info.好感度, path.concat('好感度'));
+      var body = '<div data-person-portrait="' + esc(name) + '"></div><div class="dpst-grid">' + fields.map(function (field) { return card(field[1], info[field[0]], field[2] === true, path.concat(field[0])); }).join('') + card('境界', realmText(info.境界), true, path.concat('境界')) + '</div>';
+      body += addControl(path) + '<div class="dpst-grid">' + extraCards(info, fields.map(function (f) { return f[0]; }).concat(['境界','功法','斗技','好感度','内心话','NSFW数据']), path) + '</div>';
       if (kind !== '人物' || root.dataset.personTechniques === 'on') {
-        body += '<div class="dpst-subtitle">功法</div>' + techniques(info, '功法', kind + ':' + name);
-        body += '<div class="dpst-subtitle">斗技</div>' + techniques(info, '斗技', kind + ':' + name);
+        body += '<div class="dpst-subtitle">功法</div>' + techniques(info, '功法', kind + ':' + name, path);
+        body += '<div class="dpst-subtitle">斗技</div>' + techniques(info, '斗技', kind + ':' + name, path);
       }
       if (kind === '伴侣') {
-        body += '<div class="dpst-subtitle">内心话</div>' + card('内心话', info.内心话, true);
+        body += '<div class="dpst-subtitle">内心话</div>' + card('内心话', info.内心话, true, path.concat('内心话'));
         var privateInfo = object(info.NSFW数据);
-        body += '<details class="dpst-record" data-record-key="' + esc(recordKey(kind + ':' + name, '私密状态')) + '" style="margin-top:10px"><summary>私密状态</summary><div class="dpst-record-body"><div class="dpst-grid">' + ['樱唇','酥胸','小穴','肥臀','后庭','玉足'].map(function (key) { return card(key, privateInfo[key], true); }).join('') + '</div></div></details>';
+        body += '<details class="dpst-record" data-record-key="' + esc(recordKey(kind + ':' + name, '私密状态')) + '" style="margin-top:10px"><summary>私密状态</summary><div class="dpst-record-body"><div class="dpst-grid">' + ['樱唇','酥胸','小穴','肥臀','后庭','玉足'].map(function (key) { return card(key, privateInfo[key], true, path.concat('NSFW数据', key)); }).join('') + '</div></div></details>';
       }
-      return '<details class="dpst-record" data-record-key="' + esc(recordKey(kind, name)) + '"><summary>' + summary + '</summary><div class="dpst-record-body">' + body + '</div></details>';
+      return '<details class="dpst-record" data-record-key="' + esc(recordKey(kind, name)) + '"><summary' + valuePath(path) + '>' + summary + '</summary><div class="dpst-record-body">' + body + '</div></details>';
     }
     function peopleList(source, kind) {
       var list = entries(source);
-      return list.length ? '<div class="dpst-list">' + list.map(function (pair) { return personRecord(pair[0], pair[1], kind); }).join('') + '</div>' : empty(kind);
+      return addControl([kind], '新增' + kind) + (list.length ? '<div class="dpst-list">' + list.map(function (pair) { return personRecord(pair[0], pair[1], kind); }).join('') + '</div>' : empty(kind));
     }
     function petList(source) {
       var list = entries(source);
-      if (!list.length) return empty('兽宠');
-      return '<div class="dpst-list">' + list.map(function (pair) {
+      if (!list.length) return empty('兽宠') + addControl(['兽宠'], '新增兽宠');
+      return addControl(['兽宠'], '新增兽宠') + '<div class="dpst-list">' + list.map(function (pair) {
         var name = pair[0];
-        var info = object(pair[1]);
+        var info = object(pair[1]), path = ['兽宠', name];
         var summary = '<div class="dpst-summary-row"><span class="dpst-summary-name">' + esc(name) + '<i class="dpst-summary-gender">' + esc(sexSymbol(info.性别)) + '</i></span><span class="dpst-summary-relation">等级 ' + esc(string(info.等级, '未定')) + '</span></div><span class="dpst-summary-meta">' + esc(string(info.血脉, '血脉未定')) + ' · ' + esc(string(info.所在地, '所在地未知')) + '</span>';
-        var body = '<div data-person-portrait="' + esc(name) + '"></div><div class="dpst-grid">' + card('性别', info.性别) + card('所在地', info.所在地) + card('等级', info.等级) + card('血脉', info.血脉) + card('潜力', info.潜力) + card('境界', realmText(info.境界), true) + card('外貌', info.外貌, true) + card('内心话', info.内心话, true) + '</div>';
-        return '<details class="dpst-record" data-record-key="' + esc(recordKey('兽宠', name)) + '"><summary>' + summary + '</summary><div class="dpst-record-body">' + body + '</div></details>';
+        var body = '<div data-person-portrait="' + esc(name) + '"></div><div class="dpst-grid">' + card('性别', info.性别, false, path.concat('性别')) + card('所在地', info.所在地, false, path.concat('所在地')) + card('等级', info.等级, false, path.concat('等级')) + card('血脉', info.血脉, false, path.concat('血脉')) + card('潜力', info.潜力, false, path.concat('潜力')) + card('境界', realmText(info.境界), true, path.concat('境界')) + card('外貌', info.外貌, true, path.concat('外貌')) + card('内心话', info.内心话, true, path.concat('内心话')) + extraCards(info, ['性别','所在地','等级','血脉','潜力','境界','外貌','内心话'], path) + '</div>' + addControl(path);
+        return '<details class="dpst-record" data-record-key="' + esc(recordKey('兽宠', name)) + '"><summary' + valuePath(path) + '>' + summary + '</summary><div class="dpst-record-body">' + body + '</div></details>';
       }).join('') + '</div>';
     }
     function setText(selector, value) { var node = root.querySelector(selector); if (node) node.textContent = value; }
     var lastState = '';
     function render() {
-      var state = readState();
-      var signature = JSON.stringify([state, root.dataset.personTechniques]);
+      if (editor && editor.active) return;
+      var state = editor ? editor.draft : readState();
+      var signature = JSON.stringify([state, root.dataset.personTechniques, Boolean(editor)]);
       if (signature === lastState) return;
       lastState = signature;
+      root.querySelectorAll('.dp-inline-form').forEach(function (form) { form.remove(); });
       root.dataset.variableState = state ? 'ready' : 'waiting';
       state = state || {};
       var hero = object(state.主角);
@@ -165,19 +171,23 @@
       var qiBar = root.querySelector('[data-qi-bar]');
       if (lifeBar) lifeBar.style.width = life + '%';
       if (qiBar) qiBar.style.width = qi + '%';
-      root.querySelector('[data-panel="主角"]').innerHTML = '<div data-person-portrait="' + esc(string(hero.姓名, '')) + '"></div><div class="dpst-hero-layout">' + realmGauge(hero.境界) + '<div class="dpst-grid">' + card('斗气属性', getPath(hero, '境界.斗气属性', '无')) + card('身份', hero.身份) + card('所属组织', hero.所属组织) + card('年龄', hero.年龄) + card('所在地', hero.所在地) + card('当前状态', hero.当前状态) + card('外貌', hero.外貌, true) + card('穿着', hero.穿着, true) + '</div></div>';
+      root.querySelector('[data-panel="主角"]').innerHTML = '<div data-person-portrait="' + esc(string(hero.姓名, '')) + '"></div><div class="dpst-hero-layout">' + realmGauge(hero.境界, ['主角','境界']) + '<div class="dpst-grid">' + card('斗气属性', getPath(hero, '境界.斗气属性', '无'), false, ['主角','境界','斗气属性']) + card('身份', hero.身份, false, ['主角','身份']) + card('所属组织', hero.所属组织, false, ['主角','所属组织']) + card('年龄', hero.年龄, false, ['主角','年龄']) + card('所在地', hero.所在地, false, ['主角','所在地']) + card('当前状态', hero.当前状态, false, ['主角','当前状态']) + card('外貌', hero.外貌, true, ['主角','外貌']) + card('穿着', hero.穿着, true, ['主角','穿着']) + '</div></div>';
       root.querySelector('[data-panel="绝学"]').innerHTML = sectionTitle('功法') + techniques(hero, '功法', '主角') + '<div style="height:18px"></div>' + sectionTitle('斗技') + techniques(hero, '斗技', '主角');
       root.querySelector('[data-panel="装备"]').innerHTML = sectionTitle('装备') + simpleRecordList(state.装备, '装备', [['类别','类别'],['来源','来源'],['能力','能力',true],['简介','简介',true]], '装备');
       root.querySelector('[data-panel="物品"]').innerHTML = sectionTitle('储物空间') + simpleRecordList(state.储物空间, '物品', [['类别','类别'],['等阶','等阶'],['来源','来源'],['简介','简介',true]], '储物空间');
       root.querySelector('[data-panel="人物"]').innerHTML = sectionTitle('人物') + peopleList(state.人物, '人物');
       root.querySelector('[data-panel="伴侣"]').innerHTML = sectionTitle('伴侣') + peopleList(state.伴侣, '伴侣');
       root.querySelector('[data-panel="兽宠"]').innerHTML = sectionTitle('兽宠') + petList(state.兽宠);
-      root.querySelector('[data-panel="主角"] .dpst-grid').insertAdjacentHTML('beforeend', extraCards(hero, ['姓名','性别','生命','斗气','境界','功法','斗技','斗气属性','身份','所属组织','年龄','所在地','当前状态','外貌','穿着']));
-      var other = extraCards(state, ['主角','装备','储物空间','人物','伴侣','兽宠','炼丹']);
-      root.querySelector('[data-panel="其他"]').innerHTML = '<div class="dpst-grid">' + other + '</div>';
-      root.querySelector('[data-tab="其他"]').hidden = !other;
-      if (!other && root.querySelector('[data-tab="其他"]').classList.contains('is-active')) { activate('主角'); save('doupo-status-tab-v4', '主角'); }
+      root.querySelector('[data-panel="主角"] .dpst-grid').insertAdjacentHTML('beforeend', extraCards(hero, ['姓名','性别','生命','斗气','境界','功法','斗技','斗气属性','身份','所属组织','年龄','所在地','当前状态','外貌','穿着'], ['主角']) + addControl(['主角']));
+      var other = extraCards(state, ['主角','装备','储物空间','人物','伴侣','兽宠','炼丹'], []);
+      root.querySelector('[data-panel="其他"]').innerHTML = '<div class="dpst-grid">' + other + '</div>' + addControl([], '新增项目');
+      root.querySelector('[data-tab="其他"]').hidden = !other && !editor;
+      if (!other && !editor && root.querySelector('[data-tab="其他"]').classList.contains('is-active')) { activate('主角'); save('doupo-status-tab-v4', '主角'); }
       if (storage('doupo-status-avatar-mode-v1', 'none') === 'none' && !DoupoPortraits.url(hero.姓名)) clearAvatarView();
+      [['[data-name]','姓名'],['[data-gender]','性别'],['[data-life-text]','生命'],['[data-qi-text]','斗气']].forEach(function (pair) {
+        var node = root.querySelector(pair[0]); node.dataset.valuePath = JSON.stringify(['主角', pair[1]]);
+        if (editor) { node.tabIndex = 0; node.title = '双击编辑'; } else { node.removeAttribute('tabindex'); node.removeAttribute('title'); }
+      });
       restoreOpenRecords();
       root.querySelectorAll('[data-person-portrait]').forEach(function (node) { DoupoPortraits.mount(node, node.dataset.personPortrait); });
       if (storage('doupo-status-avatar-mode-v1', 'none') === 'none' && DoupoPortraits.url(hero.姓名)) { DoupoPortraits.paint(root.querySelector('[data-avatar-image]'), hero.姓名); root.querySelector('[data-avatar-empty]').hidden = true; }
@@ -358,7 +368,7 @@
         }
         var header = event.target.closest('.dpst-head');
         var excludedHeaderControl = event.target.closest('[data-settings-open],[data-avatar-open]');
-        if (header && root.contains(header) && !excludedHeaderControl) {
+        if (header && root.contains(header) && !excludedHeaderControl && !editor) {
           var nextCollapsed = root.dataset.collapsed === 'on' ? 'off' : 'on';
           save('doupo-status-collapsed-v2', nextCollapsed);
           applyCollapsed(nextCollapsed);
@@ -428,7 +438,7 @@
       });
     }
 
-// Installed inside the existing status-bar runtime so it uses the same render function.
+// Runs inside the status runtime; edits stay in a draft until the footer Save is pressed.
     var editor = null;
     function messageBinding() {
       if (typeof window.getCurrentMessageId !== 'function') throw new Error('请在聊天消息中的状态栏打开编辑。');
@@ -448,97 +458,175 @@
     function editGet(value, path) { for (var part of path) { if (!value || typeof value !== 'object' || !Object.hasOwn(value, part)) return undefined; value = value[part]; } return value; }
     function editType(value) { return value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value; }
     function editorStatus(message) { root.querySelector('[data-edit-status]').textContent = message || ''; }
-    function editorTree() {
-      var tree = root.querySelector('[data-edit-tree]');
-      tree.replaceChildren();
-      function button(label, action) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', action); return b; }
-      function visit(value, path, parent) {
-        var group = value !== null && typeof value === 'object';
-        var node = document.createElement(group ? 'details' : 'div'); node.className = 'dp-edit-node';
-        var row = document.createElement(group ? 'summary' : 'div'); row.className = 'dp-edit-row';
-        var label = document.createElement('span'); label.textContent = path.length ? String(path.at(-1)) : '全部变量'; row.append(label);
-        if (!group) { var preview = document.createElement('code'); preview.textContent = String(value); row.append(preview); }
-        if (path.length) row.append(button('修改', function (e) { e.stopPropagation(); e.preventDefault(); chooseEdit(path, false); }));
-        if (group) row.append(button('新增', function (e) { e.stopPropagation(); e.preventDefault(); chooseEdit(path, true); }));
-        node.append(row); parent.append(node);
-        if (group) { node.open = path.length < 1; for (var pair of Object.entries(value)) visit(pair[1], path.concat(pair[0]), node); }
-      }
-      visit(editor.base, [], tree);
+    function editButton(text, action, attribute) {
+      var button = document.createElement('button'); button.type = 'button'; button.textContent = text;
+      if (attribute) button.setAttribute(attribute, '');
+      button.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); action(); });
+      return button;
     }
-    function chooseEdit(path, adding) {
-      editor.path = path.slice(); editor.adding = adding;
-      var value = editGet(editor.base, path);
-      editor.expected = JSON.stringify(value);
-      var form = root.querySelector('[data-edit-form]'); form.hidden = false;
-      root.querySelector('[data-edit-path]').textContent = path.length ? path.join(' › ') : '全部变量';
-      var name = root.querySelector('[data-edit-key]');
-      var isArray = Array.isArray(adding ? value : editGet(editor.base, path.slice(0, -1)));
-      editor.arrayParent = isArray && !adding ? JSON.stringify(editGet(editor.base, path.slice(0, -1))) : null;
-      name.value = adding ? (isArray ? String(value.length) : '') : String(path.at(-1));
-      name.readOnly = isArray;
-      root.querySelector('[data-edit-type]').value = adding ? 'string' : editType(value);
-      root.querySelector('[data-edit-value]').value = adding ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-      root.querySelector('[data-edit-delete]').hidden = adding;
-      editorStatus(''); form.scrollIntoView({ block: 'nearest' }); name.focus();
+    function validEditName(name) {
+      if (!name.trim() || ['__proto__','prototype','constructor'].includes(name)) throw new Error('请输入有效的名称。');
+      if (hiddenStatusKey(name)) throw new Error('此项不在状态栏中显示。');
+      return name;
     }
-    async function openVariableEditor() {
-      root.querySelector('[data-settings-panel]').hidden = true;
-      applyCollapsed('off');
-      var panel = root.querySelector('[data-variable-editor]'); panel.hidden = false;
-      root.querySelector('[data-edit-form]').hidden = true;
-      try {
-        var binding = messageBinding();
-        editor = { binding: binding, base: envelope(binding).stat_data };
-        editorTree(); editorStatus('修改保存后立即同步本条消息的变量。');
-      } catch (error) { editor = null; root.querySelector('[data-edit-tree]').replaceChildren(); editorStatus(error.message); }
-    }
-    async function saveVariable(remove) {
-      if (!editor || !editor.path) return;
-      var savingEditor = editor;
-      var saveButton = root.querySelector('[data-edit-save]'); var deleteButton = root.querySelector('[data-edit-delete]');
-      saveButton.disabled = deleteButton.disabled = true;
-      try {
-        var binding = messageBinding();
-        if (binding.option.message_id !== editor.binding.option.message_id || binding.chat !== editor.binding.chat || binding.swipe !== editor.binding.swipe) throw new Error('当前消息已改变，请重新打开编辑。');
-        var data = envelope(binding);
-        if (JSON.stringify(editGet(data.stat_data, editor.path)) !== editor.expected) throw new Error('这个变量已被其他操作修改，请点击“重新读取”后再编辑。');
-        var path = editor.path, parentPath = editor.adding ? path : path.slice(0, -1);
-        var parent = editGet(data.stat_data, parentPath);
-        if (!parent || typeof parent !== 'object') throw new Error('所属变量已删除，请重新读取。');
-        if (editor.arrayParent !== null && JSON.stringify(parent) !== editor.arrayParent) throw new Error('列表已变化，请重新读取后再编辑。');
-        var name = root.querySelector('[data-edit-key]').value;
-        if (!name.trim() || ['__proto__','prototype','constructor'].includes(name)) throw new Error('请输入有效的变量名称。');
-        var oldKey = path.at(-1);
-        if (!remove && (editor.adding || name !== oldKey) && Object.hasOwn(parent, name)) throw new Error('同名变量已经存在。');
-        if (remove) {
-          if (Array.isArray(parent)) parent.splice(Number(oldKey), 1); else delete parent[oldKey];
-        } else {
-          var raw = root.querySelector('[data-edit-value]').value, type = root.querySelector('[data-edit-type]').value;
-          var value;
-          if (type === 'string') value = raw;
-          else {
-            try { value = JSON.parse(raw); } catch (_) { throw new Error('值的格式不正确：数字、布尔值、数组和对象请使用合法 JSON。'); }
-            if (editType(value) !== type || type === 'number' && !Number.isFinite(value)) throw new Error('值与选择的类型不一致。');
+    // Objects and lists use ordinary labelled inputs, never a JSON text area.
+    function editField(name, value, fixedName) {
+      var row = document.createElement('div'); row.className = 'dp-inline-field';
+      var nameLabel = document.createElement('label'); nameLabel.textContent = '名称';
+      var key = document.createElement('input'); key.value = name; key.readOnly = fixedName; key.dataset.editKey = ''; nameLabel.append(key);
+      var typeLabel = document.createElement('label'); typeLabel.textContent = '类型';
+      var type = document.createElement('select'); type.dataset.editType = '';
+      [['string','文字'],['number','数字'],['boolean','是 / 否'],['object','分组'],['array','列表'],['null','空值']].forEach(function (pair) { type.add(new Option(pair[1], pair[0])); });
+      type.value = value === undefined ? 'string' : editType(value); typeLabel.append(type);
+      var body = document.createElement('div'); body.className = 'dp-inline-value';
+      row.append(nameLabel, typeLabel, body);
+      var collect;
+      function draw(current) {
+        body.replaceChildren();
+        var selected = type.value;
+        if (selected === 'object' || selected === 'array') {
+          var list = selected === 'array', children = [];
+          var group = document.createElement('div'); group.className = 'dp-inline-children'; body.append(group);
+          function add(childName, childValue) {
+            var child = editField(childName, childValue, list); children.push(child); group.append(child.row);
+            child.row.append(editButton('删除此项', function () { child.row.remove(); }, 'data-edit-child-delete'));
           }
-          if (Array.isArray(parent) && editor.adding) parent.push(value);
-          else { if (!editor.adding && name !== oldKey) delete parent[oldKey]; parent[name] = value; }
+          Object.entries(current || {}).filter(function (pair) { return !hiddenStatusKey(pair[0]); }).forEach(function (pair) { add(pair[0], pair[1]); });
+          body.append(editButton(list ? '新增一项' : '新增字段', function () { add(list ? String(children.length) : '', ''); }, 'data-edit-child-add'));
+          collect = function () {
+            var result = list ? [] : {};
+            if (!list) Object.entries(current || {}).filter(function (pair) { return hiddenStatusKey(pair[0]); }).forEach(function (pair) { result[pair[0]] = pair[1]; });
+            children.filter(function (child) { return group.contains(child.row); }).forEach(function (child) {
+              var pair = child.read();
+              if (list) result.push(pair.value);
+              else { if (Object.hasOwn(result, pair.name)) throw new Error('同名字段已经存在：' + pair.name); result[pair.name] = pair.value; }
+            });
+            return result;
+          };
+        } else if (selected === 'null') {
+          body.textContent = '未设置'; collect = function () { return null; };
+        } else {
+          var label = document.createElement('label'); label.textContent = '值';
+          var input = document.createElement(selected === 'boolean' ? 'select' : selected === 'number' ? 'input' : 'textarea'); input.dataset.editValue = '';
+          if (selected === 'boolean') { input.add(new Option('是', 'true')); input.add(new Option('否', 'false')); input.value = String(Boolean(current)); }
+          else if (selected === 'number') { input.type = 'number'; input.step = 'any'; input.value = current === undefined ? '' : String(current); }
+          else { input.rows = 3; input.value = current === undefined ? '' : String(current); }
+          label.append(input); body.append(label);
+          collect = function () {
+            if (selected === 'boolean') return input.value === 'true';
+            if (selected === 'number') { if (!input.value.trim() || !Number.isFinite(Number(input.value))) throw new Error('请输入有效数字。'); return Number(input.value); }
+            return input.value;
+          };
         }
-        await binding.target.Mvu.replaceMvuData(data, binding.option);
-        if (editor === savingEditor && editor.path === path) {
-          editor.base = envelope(binding).stat_data;
-          editor.path = null; editorTree(); root.querySelector('[data-edit-form]').hidden = true;
-          editorStatus(remove ? '已删除，变量管理器会同步更新。' : '已保存，变量管理器会同步更新。');
-        }
-        lastState = ''; render();
-      } catch (error) { editorStatus(error.message || '保存失败，请重试。'); }
-      finally { saveButton.disabled = deleteButton.disabled = false; }
+      }
+      type.addEventListener('change', function () { draw({string:'',number:0,boolean:false,object:{},array:[],null:null}[type.value]); });
+      draw(value);
+      return { row: row, read: function () { return { name: fixedName ? name : validEditName(key.value), value: collect() }; } };
     }
+    function refreshDraft() { lastState = ''; render(); }
+    function finishInline(remove) {
+      if (!editor || !editor.active) return;
+      var active = editor.active, path = active.path;
+      var parent = editGet(editor.draft, active.adding ? path : path.slice(0, -1));
+      if (!parent || typeof parent !== 'object') throw new Error('所属项目不存在，请退出后重新编辑。');
+      var oldKey = path.at(-1);
+      if (remove) { if (Array.isArray(parent)) parent.splice(Number(oldKey), 1); else delete parent[oldKey]; }
+      else {
+        var pair = active.field.read();
+        if (!Array.isArray(parent) && (active.adding || pair.name !== oldKey) && Object.hasOwn(parent, pair.name)) throw new Error('同名字段已经存在。');
+        if (active.adding && Array.isArray(parent)) parent.push(pair.value);
+        else { if (!active.adding && pair.name !== oldKey) delete parent[oldKey]; parent[pair.name] = pair.value; }
+      }
+      editor.active = null; refreshDraft(); editorStatus('修改尚未保存，请点击左下角“保存”。');
+    }
+    function beginInline(path, adding) {
+      if (!editor || editor.saving) return;
+      try {
+        finishInline(false);
+        var value = editGet(editor.draft, path);
+        var parent = adding ? value : editGet(editor.draft, path.slice(0, -1));
+        var list = Array.isArray(parent);
+        var name = adding ? (list ? String(parent.length) : '') : String(path.at(-1));
+        var recordGroup = ['人物','伴侣','兽宠','装备','储物空间','功法','斗技'].includes(path.at(-1));
+        var field = editField(name, adding ? (recordGroup ? {} : '') : value, list);
+        var form = document.createElement('div'); form.className = 'dp-inline-form'; form.dataset.inlineForm = '';
+        var heading = document.createElement('strong'); heading.textContent = adding ? '新增项目' : path.join(' · '); form.append(heading, field.row);
+        function attempt(action) { try { action(); } catch (error) { editorStatus(error.message); } }
+        var actions = document.createElement('div'); actions.className = 'dp-edit-actions';
+        actions.append(editButton('收起编辑', function () { attempt(function () { finishInline(false); }); }, 'data-edit-apply'));
+        if (!adding) actions.append(editButton('删除此项', function () { attempt(function () { finishInline(true); }); }, 'data-edit-delete'));
+        actions.append(editButton('取消本项', function () { editor.active = null; refreshDraft(); }, 'data-edit-cancel')); form.append(actions);
+        var attribute = adding ? 'data-edit-add' : 'data-value-path';
+        var node = Array.from(root.querySelectorAll('[' + attribute + ']')).find(function (item) { return item.getAttribute(attribute) === JSON.stringify(path); });
+        if (!node) throw new Error('该项暂未显示，请切换到对应标签。');
+        if (adding) node.after(form);
+        else if (node.tagName === 'SUMMARY') { node.parentElement.open = true; node.parentElement.querySelector('.dpst-record-body').replaceChildren(form); }
+        else if (node.closest('.dpst-head')) node.after(form);
+        else { node.classList.add('dp-inline-host'); node.replaceChildren(form); }
+        editor.active = {path:path.slice(),adding:adding,field:field};
+        editorStatus('双击其他方框可继续修改，最后点击左下角“保存”。');
+        (form.querySelector('[data-edit-value]') || form.querySelector('input')).focus();
+      } catch (error) { editorStatus(error.message); }
+    }
+    function openVariableEditor() {
+      root.querySelector('[data-settings-panel]').hidden = true; applyCollapsed('off');
+      root.querySelector('[data-edit-toolbar]').hidden = false;
+      if (editor) return;
+      try {
+        var binding = messageBinding(), data = envelope(binding).stat_data;
+        editor = {binding:binding,base:data,draft:JSON.parse(JSON.stringify(data)),active:null,saving:false};
+        root.dataset.editing = 'on'; refreshDraft(); editorStatus('双击方框修改；完成后点击左下角“保存”。');
+      } catch (error) { editorStatus(error.message); }
+    }
+    function editChanges(before, after, path, result) {
+      if (JSON.stringify(before) === JSON.stringify(after)) return;
+      if (editType(before) === 'object' && editType(after) === 'object') {
+        Array.from(new Set(Object.keys(before).concat(Object.keys(after)))).forEach(function (key) { editChanges(before[key], after[key], path.concat(key), result); });
+      } else result.push({path:path,before:before,after:after});
+    }
+    async function saveVariable() {
+      if (!editor || editor.saving) return;
+      var current = editor;
+      try {
+        finishInline(false);
+        var binding = messageBinding();
+        if (binding.option.message_id !== editor.binding.option.message_id || binding.chat !== editor.binding.chat || binding.swipe !== editor.binding.swipe) throw new Error('当前消息已改变，请退出后重新编辑。');
+        var data = envelope(binding), changes = []; editChanges(editor.base, editor.draft, [], changes);
+        changes.forEach(function (change) {
+          if (JSON.stringify(editGet(data.stat_data, change.path)) !== JSON.stringify(change.before)) throw new Error('“' + change.path.join(' · ') + '”已被其他操作修改。草稿已保留，请放弃修改后重新读取。');
+          var parent = editGet(data.stat_data, change.path.slice(0, -1));
+          if (!parent || typeof parent !== 'object') throw new Error('所属项目已变化，请放弃修改后重新读取。');
+        });
+        changes.forEach(function (change) { var parent = editGet(data.stat_data, change.path.slice(0, -1)), key = change.path.at(-1); if (change.after === undefined) delete parent[key]; else parent[key] = change.after; });
+        editor.saving = true; root.querySelector('[data-edit-save]').disabled = true;
+        if (changes.length) await binding.target.Mvu.replaceMvuData(data, binding.option);
+        editor.base = envelope(binding).stat_data; editor.draft = JSON.parse(JSON.stringify(editor.base));
+        refreshDraft(); editorStatus('已保存，变量管理器已同步。');
+      } catch (error) { editorStatus(error.message || '保存失败，草稿已保留。'); }
+      finally { current.saving = false; root.querySelector('[data-edit-save]').disabled = false; }
+    }
+    function closeVariableEditor(discard) {
+      if (editor && editor.saving) return;
+      if (!discard && editor && (editor.active || JSON.stringify(editor.base) !== JSON.stringify(editor.draft))) { editorStatus('还有未保存的修改，请先保存，或点击“放弃修改”。'); return; }
+      editor = null; delete root.dataset.editing; root.querySelector('[data-edit-toolbar]').hidden = true; refreshDraft();
+    }
+    root.addEventListener('dblclick', function (event) {
+      if (!editor || event.target.closest('.dp-inline-form')) return;
+      var node = event.target.closest('[data-value-path]');
+      if (node) { event.preventDefault(); event.stopPropagation(); beginInline(JSON.parse(node.dataset.valuePath), false); }
+    });
+    root.addEventListener('keydown', function (event) {
+      if (editor && event.key === 'Enter' && event.target.hasAttribute('data-value-path')) { event.preventDefault(); beginInline(JSON.parse(event.target.dataset.valuePath), false); }
+    });
+    root.addEventListener('click', function (event) {
+      var add = event.target.closest('[data-edit-add]');
+      if (add && editor) { event.preventDefault(); beginInline(JSON.parse(add.dataset.editAdd), true); }
+    });
+    ['click','dblclick','keydown','input'].forEach(function (type) { root.addEventListener(type, function (event) { if (editor && editor.saving) { event.preventDefault(); event.stopImmediatePropagation(); } }, true); });
     root.querySelector('[data-edit-open]').addEventListener('click', openVariableEditor);
-    root.querySelector('[data-edit-reload]').addEventListener('click', openVariableEditor);
-    root.querySelector('[data-edit-close]').addEventListener('click', function () { root.querySelector('[data-variable-editor]').hidden = true; editor = null; });
-    root.querySelector('[data-edit-cancel]').addEventListener('click', function () { root.querySelector('[data-edit-form]').hidden = true; editor.path = null; });
-    root.querySelector('[data-edit-save]').addEventListener('click', function () { saveVariable(false); });
-    root.querySelector('[data-edit-delete]').addEventListener('click', function () { saveVariable(true); });
+    root.querySelector('[data-edit-save]').addEventListener('click', saveVariable);
+    root.querySelector('[data-edit-close]').addEventListener('click', function () { closeVariableEditor(false); });
+    root.querySelector('[data-edit-discard]').addEventListener('click', function () { closeVariableEditor(true); });
 
     bindInteractions();
     loadAvatar().then(function () { lastState = ''; render(); });
