@@ -1,7 +1,7 @@
 [
   {
     "id": "dpcq-body-reader-20260905-v03",
-    "scriptName": "斗破正文美化｜立绘与前端兼容",
+    "scriptName": "斗破正文美化｜头像与前端兼容",
     "findRegex": "/<content>\\s*<story>\\s*((?:(?!\\{\\{|\\}\\}|\\x60{3}|~{3})[^<])+?)\\s*<\\/story>\\s*<time>\\s*((?:(?!\\{\\{|\\}\\}|\\x60{3}|~{3})[^<])+?)\\s*<\\/time>\\s*<now_plot>\\s*((?:(?!<\\/textarea\\b|\\{\\{|\\}\\}|\\x60{3}|~{3}|<!doctype\\b|<\\/?(?:content|story|time|now_plot|html|head|body|script|style|iframe|pre|code|UpdateVariable|StatusPlaceHolderImpl|start)\\b)[\\s\\S])*?)\\s*<\\/now_plot>\\s*<\\/content>/gi",
     "trimStrings": [],
     "placement": [
